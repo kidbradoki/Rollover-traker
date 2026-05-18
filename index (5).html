@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rollover Tracker Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 font-sans antialiased text-gray-800">
+
+    <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white p-6 rounded-2xl w-full max-w-sm shadow-xl border border-gray-100">
+            <h2 class="text-2xl font-bold text-blue-600 text-center mb-2">Rollover Tracker</h2>
+            <p class="text-gray-500 text-xs text-center mb-6">Guarda o teu progresso na nuvem de forma segura</p>
+            
+            <label class="block text-xs font-bold text-gray-500 mb-1">E-MAIL</label>
+            <input type="email" id="auth-email" placeholder="teu@email.com" class="w-full p-3 border border-gray-200 rounded-xl mb-3 focus:outline-blue-500">
+            
+            <label class="block text-xs font-bold text-gray-500 mb-1">PALAVRA-PASSE</label>
+            <input type="password" id="auth-password" placeholder="••••••••" class="w-full p-3 border border-gray-200 rounded-xl mb-6 focus:outline-blue-500">
+            
+            <button onclick="fazerLogin()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition mb-3">Entrar</button>
+            <button onclick="criarConta()" class="w-full bg-gray-100 text-gray-600 font-medium py-2 text-sm rounded-xl hover:bg-gray-200 transition">Criar Nova Conta</button>
+        </div>
+    </div>
+
+    <div id="app-screen" class="hidden animate-fade-in">
+        <div class="bg-blue-600 p-4 text-white text-center font-bold text-lg shadow-md flex justify-between items-center px-6">
+            <span>Rollover Tracker</span>
+            <button onclick="fazerLogout()" class="text-xs bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg font-medium transition">
+                Sair
+            </button>
+        </div>
+
+        <div class="p-4 max-w-sm mx-auto">
+            
+            <div class="bg-white p-5 rounded-2xl shadow-sm mb-5 border border-gray-100">
+                <div class="flex justify-between items-center mb-1 text-sm text-gray-500">
+                    <span>Meta: <strong>R$ <span id="txt-meta">1000.00</span></strong></span>
+                    <span>Odd Mínima: <strong class="text-amber-600">1.70</strong></span>
+                </div>
+                
+                <div id="txt-total" class="text-3xl font-bold text-blue-600 mb-3">
+                    R$ 0.00 <span class="text-gray-400 text-lg font-normal">válido</span>
+                </div>
+                
+                <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                    <div id="barra-progresso" class="bg-green-500 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between items-center mt-2">
+                    <span id="txt-resta" class="text-xs text-gray-500">Falta: R$ 1000.00</span>
+                    <span id="txt-porcentagem" class="text-xs font-bold text-green-600">0%</span>
+                </div>
+            </div>
+
+            <button onclick="abrirModal()" class="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl shadow-lg hover:bg-blue-700 active:scale-[0.98] transition mb-6">
+                + Adicionar Aposta
+            </button>
+
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="font-bold text-gray-700 text-sm mb-3 uppercase tracking-wider">Histórico na Nuvem</h3>
+                <div id="lista-apostas" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    <p class="text-gray-400 text-xs text-center py-4">A carregar dados...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 backdrop-blur-sm z-50">
+        <div class="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl">
+            <h3 class="font-bold text-lg text-gray-800 mb-4">Registrar Nova Aposta</h3>
+            
+            <label class="block text-xs font-bold text-gray-500 mb-1">VALOR DA APOSTA (R$)</label>
+            <input type="number" id="input-valor" placeholder="Ex: 50.00" step="0.01" class="w-full p-3 border border-gray-200 rounded-xl mb-3">
+            
+            <label class="block text-xs font-bold text-gray-500 mb-1">ODD DO BILHETE</label>
+            <input type="number" id="input-odd" placeholder="Ex: 1.85" step="0.01" class="w-full p-3 border border-gray-200 rounded-xl mb-5">
+            
+            <div class="flex gap-3">
+                <button onclick="fecharModal()" class="w-1/2 py-3 text-gray-500 font-medium">Cancelar</button>
+                <button onclick="salvarAposta()" class="w-1/2 bg-blue-600 text-white py-3 rounded-xl font-bold">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CONFIGURAÇÕES DIRETAS DO TEU PROJETO
+        const SUPABASE_URL = "https://hhsavzqhtuzhjhobiif.supabase.co"; 
+        const SUPABASE_KEY = "sb_publishable_rnL_L9BM963wxh86GRyWgw_t1CseSsm";
+
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const CONFIG = { metaTotal: 1000.00, oddMinima: 1.70 };
+        let usuarioLogado = null;
+
+        // --- SISTEMA DE AUTENTICAÇÃO ---
+        async function verificarSessao() {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (session) {
+                usuarioLogado = session.user;
+                mostrarApp();
+                carregarApostas();
+            } else {
+                mostrarLogin();
+            }
+        }
+
+        async function criarConta() {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const { data, error } = await _supabase.auth.signUp({ email, password });
+            
+            if (error) alert(error.message);
+            else alert("Conta criada! Verifica o teu e-mail para confirmar o registo.");
+        }
+
+        async function fazerLogin() {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+            
+            if (error) alert("Erro ao entrar: " + error.message);
+            else {
+                usuarioLogado = data.user;
+                mostrarApp();
+                carregarApostas();
+            }
+        }
+
+        async function fazerLogout() {
+            await _supabase.auth.signOut();
+            usuarioLogado = null;
+            mostrarLogin();
+        }
+
+        function mostrarApp() {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('app-screen').classList.remove('hidden');
+        }
+
+        function mostrarLogin() {
+            document.getElementById('app-screen').classList.add('hidden');
+            document.getElementById('auth-screen').classList.remove('hidden');
+        }
+
+        // --- CONTROLO DE DADOS ---
+        function abrirModal() { document.getElementById('modal').classList.remove('hidden'); }
+        function fecharModal() { document.getElementById('modal').classList.add('hidden'); }
+
+        async function carregarApostas() {
+            const { data, error } = await _supabase
+                .from('apostas_usuario')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error(error);
+                return;
+            }
+
+            atualizarDashboard(data || []);
+        }
+
+        async function salvarAposta() {
+            const valEl = document.getElementById('input-valor');
+            const oddEl = document.getElementById('input-odd');
+            const valor = parseFloat(valEl.value);
+            const odd = parseFloat(oddEl.value);
+
+            if (isNaN(valor) || valor <= 0 || isNaN(odd) || odd <= 0) {
+                alert("Preenche os campos corretamente.");
+                return;
+            }
+
+            // Envia para o banco de dados na nuvem
+            const { error } = await _supabase
+                .from('apostas_usuario')
+                .insert([{ user_id: usuarioLogado.id, valor: valor, odd: odd }]);
+
+            if (error) {
+                alert("Erro ao salvar: " + error.message);
+            } else {
+                valEl.value = ''; oddEl.value = '';
+                fecharModal();
+                carregarApostas(); // Recarrega os dados atualizados
+            }
+        }
+
+        function atualizarDashboard(apostas) {
+            const totalValido = apostas.reduce((acc, a) => {
+                return a.odd >= CONFIG.oddMinima ? acc + parseFloat(a.valor) : acc;
+            }, 0);
+
+            const porcentagem = Math.min((totalValido / CONFIG.metaTotal) * 100, 100);
+            const restante = Math.max(CONFIG.metaTotal - totalValido, 0);
+
+            document.getElementById('txt-total').innerHTML = `R$ ${totalValido.toFixed(2)} <span class="text-gray-400 text-lg font-normal">válido</span>`;
+            document.getElementById('txt-resta').innerText = `Falta: R$ ${restante.toFixed(2)}`;
+            document.getElementById('txt-porcentagem').innerText = `${porcentagem.toFixed(0)}%`;
+            document.getElementById('barra-progresso').style.width = porcentagem + '%';
+
+            renderizarHistorico(apostas);
+        }
+
+        function renderizarHistorico(apostas) {
+            const listaContainer = document.getElementById('lista-apostas');
+            if (apostas.length === 0) {
+                listaContainer.innerHTML = `<p class="text-gray-400 text-xs text-center py-4">Nenhuma aposta registada na nuvem.</p>`;
+                return;
+            }
+
+            listaContainer.innerHTML = '';
+            apostas.forEach(aposta => {
+                const eValida = aposta.odd >= CONFIG.oddMinima;
+                const dataFormatada = new Date(aposta.created_at).toLocaleDateString('pt-BR');
+                
+                const itemHtml = `
+                    <div class="flex justify-between items-center p-3 ${eValida ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'} border rounded-xl text-xs">
+                        <div>
+                            <span class="font-bold text-gray-700">R$ ${parseFloat(aposta.valor).toFixed(2)}</span>
+                            <span class="text-gray-400 mx-1">•</span>
+                            <span class="text-gray-500">Odd: ${parseFloat(aposta.odd).toFixed(2)}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="block text-[10px] text-gray-400">${dataFormatada}</span>
+                            <span class="font-bold ${eValida ? 'text-green-600' : 'text-red-500'} text-[10px] uppercase">
+                                ${eValida ? 'Contabilizou' : 'Odd Baixa'}
+                            </span>
+                        </div>
+                    </div>
+                `;
+                listaContainer.insertAdjacentHTML('beforeend', itemHtml);
+            });
+        }
+
+        // Executa ao carregar a página para checar se o utilizador já está logado
+        verificarSessao();
+    </script>
+</body>
+</html>
