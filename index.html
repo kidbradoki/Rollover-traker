@@ -85,9 +85,9 @@
     </div>
 
     <script>
-        // CONFIGURAÇÕES DIRETAS DO TEU PROJETO
+        // CONFIGURAÇÕES DIRETAS DO TEU PROJETO COM AS CHAVES CORRETAS
         const SUPABASE_URL = "https://hhsavzqhtuzhjhobiif.supabase.co"; 
-        const SUPABASE_KEY = "sb_publishable_rnL_L9BM963wxh86GRyWgw_t1CseSsm";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhoc2F2enFodGh1emhqaG9iaWlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODI2OTQsImV4cCI6MjA5NDY1ODY5NH0.w1GY3yCtyW3rxiMUyW_cx6qyiiKzCCQn4gBqHQxx2fE";
 
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -112,7 +112,7 @@
             const { data, error } = await _supabase.auth.signUp({ email, password });
             
             if (error) alert(error.message);
-            else alert("Conta criada! Verifica o teu e-mail para confirmar o registo.");
+            else alert("Conta criada! Já podes tentar fazer login.");
         }
 
         async function fazerLogin() {
