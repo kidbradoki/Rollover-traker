@@ -85,8 +85,8 @@
     </div>
 
     <script>
-        // CONFIGURAÇÕES DIRETAS DO TEU PROJETO COM AS CHAVES CORRETAS
-        const SUPABASE_URL = "https://hhsavzqhtuzhjhobiif.supabase.co"; 
+        // CONFIGURAÇÕES DIRETAS DO TEU PROJETO COM AS CHAVES CORRETAS E A URL ARRUMADA!
+        const SUPABASE_URL = "https://hhsavzqhthuzhjhobiif.supabase.co"; 
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhoc2F2enFodGh1emhqaG9iaWlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwODI2OTQsImV4cCI6MjA5NDY1ODY5NH0.w1GY3yCtyW3rxiMUyW_cx6qyiiKzCCQn4gBqHQxx2fE";
 
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -149,6 +149,15 @@
         function fecharModal() { document.getElementById('modal').classList.add('hidden'); }
 
         async function carregarApostas() {
+            // TRAVA DE SEGURANÇA
+            if (!usuarioLogado) {
+                const listaContainer = document.getElementById('lista-apostas');
+                if (listaContainer) {
+                    listaContainer.innerHTML = `<p class="text-gray-400 text-xs text-center py-4">Faz o login para ver os teus dados.</p>`;
+                }
+                return;
+            }
+
             const { data, error } = await _supabase
                 .from('apostas_usuario')
                 .select('*')
